@@ -93,7 +93,10 @@ func MyWebApi(w http.ResponseWriter, r *http.Request) {
 ```go
 func Sort(list interface{}, field string) error 
 ```
-Sorts a slice/list of structs based on the values in the specified field. 
+Sorts a slice/list of structs based on the values in the specified field. Fields that are 
+pointers will be deferenced correctly. Nil values are sorted to the end of the list.
+
+If a field implements a String() method, then it will be sorted as a simple string.
 
 Unknown fields, unknown types, invalid pointers, etc all return err. This function
 should not panic unless you try really hard.

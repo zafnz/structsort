@@ -7,6 +7,11 @@ import (
 )
 
 type embeddedStruct struct {
+	val string
+}
+
+func (e embeddedStruct) String() string {
+	return e.val
 }
 
 type testStruct struct {
@@ -134,9 +139,29 @@ func TestValPtrs(t *testing.T) {
 			break
 		}
 	}
-	return
-
 }
+func TestNilPtrSort(t *testing.T) {
+	sillyStrings := []string{"banana", "zebra", "mike", "john", "apples", "zebra", "zebra", "cowboy"}
+
+	list := make([]testStruct, len(sillyStrings))
+
+	for i := 0; i < len(sillyStrings); i++ {
+		s := sillyStrings[i]
+		list[i].StrPtr = &s
+	}
+	list[2].StrPtr = nil
+
+	err := Sort(list, "StrPtr")
+	if err != nil {
+		t.Errorf("got error: %s", err)
+		return
+	}
+	if list[len(sillyStrings)-1].StrPtr != nil {
+		t.Errorf("Nil entry not sorted to end of list")
+	}
+	return
+}
+
 func TestStructPtrs(t *testing.T) {
 	sillyStrings := []string{"banana", "zebra", "Mike", "john", "apples", "zebra", "zebra"}
 
@@ -167,14 +192,26 @@ func TestInvalidField(t *testing.T) {
 }
 
 func TestUnknownType(t *testing.T) {
-	sillyStrings := []string{"banana", "Zebra", "zebra", "john", "John"}
+	sillyStrings := []string{"banana", "Zebra", "zebra", "john", "John", "d", "c", "b", "a"}
 	list := make([]testStruct, len(sillyStrings))
 	for i := 0; i < len(sillyStrings); i++ {
-		list[i].String = sillyStrings[i]
+		list[i].Struct.val = sillyStrings[i]
 	}
-	err := Sort(list, "Struct")
+	err := Sort(list, "StrSlice")
 	if err == nil {
 		t.Errorf("did not report errors when trying to sort by a type it can't handle")
+	}
+
+	err = Sort(list, "Struct")
+	if err != nil {
+		t.Errorf("reported error sorting Struct that implements String(): %s", err.Error())
+	}
+	sort.Strings(sillyStrings)
+	for i := 0; i < len(sillyStrings); i++ {
+		if list[i].Struct.val != sillyStrings[i] {
+			t.Errorf("list not sorted by String()")
+			break
+		}
 	}
 
 }
