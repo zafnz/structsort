@@ -6,6 +6,10 @@ import (
 	"sort"
 )
 
+type Stringer interface {
+	String() string
+}
+
 // Sort sorts a slice of structs, by the named field.
 // If useJsonTags then look for json field names specified and if the field name is found there,
 // then it will sort with that field.
@@ -54,20 +58,31 @@ func sortInternal(list interface{}, field string, tagName string) error {
 		}
 		bValue := bStruct.FieldByName(field)
 		if aValue.Type().Kind() != bValue.Type().Kind() {
-			err = fmt.Errorf("list items aren't of same type %s vs %s", aValue.Type().Name(), bValue.Type().Name())
-			return false
+			// It's moderately hard to get to this issue. You're really having to fuck around
+			// with lists using reflection.
+			panic(fmt.Sprintf("list items aren't of same type %s vs %s", aValue.Type().Name(), bValue.Type().Name()))
 		}
+		var aNil, bNil bool
 		if aValue.Kind() == reflect.Ptr {
 			if aValue.IsNil() {
-				return false
+				aNil = true
+			} else {
+				aValue = aValue.Elem()
 			}
-			aValue = aValue.Elem()
 		}
 		if bValue.Kind() == reflect.Ptr {
 			if bValue.IsNil() {
-				return false
+				bNil = true
+			} else {
+				bValue = bValue.Elem()
 			}
-			bValue = bValue.Elem()
+		}
+		if aNil && bNil {
+			return false
+		} else if aNil && !bNil {
+			return false
+		} else if !aNil && bNil {
+			return true
 		}
 		switch aValue.Type().Kind() {
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
@@ -81,9 +96,16 @@ func sortInternal(list interface{}, field string, tagName string) error {
 		case reflect.Bool:
 			return !aValue.Bool()
 		default:
+			stringerType := reflect.TypeOf((*Stringer)(nil)).Elem()
+
+			if aValue.Type().Implements(stringerType) {
+				a := aValue.Interface().(Stringer).String()
+				b := bValue.Interface().(Stringer).String()
+				return a < b
+			}
 			err = fmt.Errorf("unknown field type %s", aValue.Type().Name())
+			return false
 		}
-		return true
 	})
 	return err
 }
