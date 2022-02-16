@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"testing"
+	"time"
 )
 
 type embeddedStruct struct {
@@ -37,6 +38,7 @@ type testStruct struct {
 	Complex64  complex64
 	Complex128 complex128
 	Struct     embeddedStruct
+	Time       time.Time
 }
 
 func TestBasicSort(t *testing.T) {
@@ -117,6 +119,28 @@ func TestJsonFields(t *testing.T) {
 			break
 		}
 	}
+	return
+}
+
+func TestTimeSort(t *testing.T) {
+	list := make([]testStruct, 10)
+	list[0].Time = time.Unix(3000, 0)
+	list[1].Time = time.Unix(9000, 0)
+	list[2].Time = time.Unix(9000, 0)
+	list[3].Time = time.Unix(1000, 0)
+	list[4].Time = time.Unix(2511, 1)
+
+	err := Sort(list, "Time")
+	if err != nil {
+		t.Fatalf("got error: %s", err)
+	}
+	for i := 1; i < len(list); i++ {
+		if list[i-1].Time.After(list[i].Time) {
+			t.Errorf("Time sort has %s after %s", list[i-1].Time.String(), list[i].Time.String())
+		}
+		//fmt.Println("times: ", list[i].Time.String())
+	}
+
 	return
 }
 
