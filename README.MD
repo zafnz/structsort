@@ -87,6 +87,40 @@ func MyWebApi(w http.ResponseWriter, r *http.Request) {
     ... Insert rest of code ...
 }
 ```
+### Sort fields Compare method
+When sorting by a field, if the field itself implements a method `T.Compare(T) bool`
+then this method will be called. Note: This is not the struct itself, if you have
+a `Compare` method for the struct that you're sorting, you should be using the `sort`
+library instead!
+
+Example:
+```go
+type Point struct {
+	x int
+	y int
+}
+
+func (d Point) Compare(other Point) bool { // Compare how far from origin
+	return (d.x + d.y) < (other.x + other.y)
+}
+
+type Thing struct {
+	Name     string
+	Location Point
+}
+
+func Example_customCompare() {
+	list := []Thing{
+		{"Orange", Point{2, 3}},
+		{"Lemon", Point{1, 2}},
+		{"Apple", Point{1, 1}},
+	}
+	structsort.Sort(list, "Location")
+	fmt.Printf("%v\n", list)
+	// Output:
+	// [{Apple {1 1}} {Lemon {1 2}} {Orange {2 3}}]
+}
+```
 
 ## Functions
 ### Sort

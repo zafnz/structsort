@@ -1,7 +1,6 @@
 package structsort_test
 
 import (
-	"fmt"
 	"log"
 	"math"
 	"sort"
@@ -238,6 +237,34 @@ func TestUnknownType(t *testing.T) {
 
 }
 
+type MyType struct {
+	x int
+}
+
+func (t MyType) Compare(t2 MyType) bool {
+	return t.x <= t2.x
+}
+func TestCustomComparison(t *testing.T) {
+	list := []struct {
+		Thing MyType
+	}{
+		{Thing: MyType{1}},
+		{Thing: MyType{5}},
+		{Thing: MyType{2}},
+		{Thing: MyType{4}},
+		{Thing: MyType{3}},
+	}
+	err := structsort.Sort(list, "Thing")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(list)
+
+	if list[0].Thing.x != 1 || list[4].Thing.x != 5 {
+		t.Error("Out of order")
+	}
+}
+
 /*
 	Float      float32
 	Bool       bool
@@ -282,47 +309,4 @@ func TestAllTheTypes(t *testing.T) {
 	if list[0].Uint16 != 2 || list[2].Uint16 != 200 {
 		t.Error("Uint16 sort order incorrect")
 	}
-}
-
-func Example() {
-	type Person struct {
-		Name string
-		Age  int
-	}
-	// Create some basic records
-	var records = []Person{
-		{
-			Name: "Charlie",
-			Age:  22,
-		},
-		{
-			Name: "Bob",
-			Age:  33,
-		},
-		{
-			Name: "Alice",
-			Age:  44,
-		},
-	}
-
-	// Now for the magic
-	fmt.Println("Sort by Name")
-	structsort.Sort(records, "Name")
-	for _, r := range records {
-		fmt.Printf("%s: %d\n", r.Name, r.Age)
-	}
-	fmt.Println("Now sort by Age")
-	structsort.Sort(records, "Age")
-	for _, r := range records {
-		fmt.Printf("%s: %d\n", r.Name, r.Age)
-	}
-	// Output:
-	// Sort by Name
-	// Alice: 44
-	// Bob: 33
-	// Charlie: 22
-	// Now sort by Age
-	// Charlie: 22
-	// Bob: 33
-	// Alice: 44
 }

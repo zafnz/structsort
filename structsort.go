@@ -4,13 +4,15 @@
 //    {2,"x"},
 //    {1,"y"},
 //  }
-// structsort.Sort(list, "var") // sorts by int
-// structsort.Sort(list, "str") // sorts by string
+//  structsort.Sort(list, "var") // sorts by int
+//  structsort.Sort(list, "str") // sorts by string
 //
-// It can sort by anything that is either a native type, or implements a String() function.
+// It can sort by anything that is either a native type, implements a Compare() method (see
+// customCompare example, or implements a String() function.
 package structsort
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -32,12 +34,18 @@ func sortInternal(list interface{}, field string, tagName string) error {
 		return nil
 	}
 	s.err = new(errHolder)
-	s.rawType = s.slice.Index(0).Type()
-	s.fieldIdx = fieldIndex(ref(s.slice.Index(0)).Type(), tagName, field)
+	first := s.slice.Index(0)
+	s.rawType = first.Type()
+	s.fieldIdx = fieldIndex(ref(first).Type(), tagName, field)
 	if s.fieldIdx == -1 {
 		return fmt.Errorf("no such field %s", field)
 	}
-
+	s.fieldType = ref(ref(first).Field(s.fieldIdx)).Type()
+	var err error
+	s.hasCompare, err = s.checkHasCompare(s.fieldType)
+	if err != nil {
+		fmt.Printf("struct's sort field has a Compare method with issues: %s\n", err.Error())
+	}
 	sort.Sort(s)
 	return s.err.err
 }
@@ -47,10 +55,12 @@ type errHolder struct {
 }
 
 type genericSort struct {
-	slice    reflect.Value
-	rawType  reflect.Type
-	fieldIdx int
-	err      *errHolder
+	slice      reflect.Value
+	rawType    reflect.Type // The type of the struct itself
+	fieldIdx   int
+	err        *errHolder
+	hasCompare bool         // Whether the field we are sorting by has a Compare method
+	fieldType  reflect.Type // The type of the field we are sorting by
 }
 
 func (s genericSort) Len() int {
@@ -85,8 +95,43 @@ func (s genericSort) Less(i, j int) bool {
 	}
 	return result
 }
+func (s genericSort) checkHasCompare(t reflect.Type) (bool, error) {
+	// t is the type we are sorting on, that may have a method called "Compare"
+	m, found := t.MethodByName("Compare")
+	if !found {
+		return false, nil
+	}
+	if m.Type.NumIn() != 2 { // Method's signature includes it's own type as first parameter
+		return false, errors.New("compare method for type does not have one parameter")
+	}
+	if m.Type.NumOut() != 1 {
+		return false, errors.New("compare method for type does not return only one value")
+	}
+	if m.Type.In(0) != t || m.Type.In(1) != t {
+		return false, errors.New("compare method's input is not of it's own type")
+	}
+	if m.Type.Out(0).Kind() != reflect.Bool {
+		return false, errors.New("compare method's output is not of type bool")
+
+	}
+	return true, nil
+}
+func (s genericSort) useCompare(a, b reflect.Value) (bool, error) {
+	compareFunc := a.MethodByName("Compare")
+	result := compareFunc.Call([]reflect.Value{b})
+	if len(result) != 1 {
+		return false, fmt.Errorf("compare method did not return only one argument")
+	}
+	if result[0].Type().Kind() != reflect.Bool {
+		return false, errors.New("compare method's result was not bool")
+	}
+	return result[0].Bool(), nil
+}
 
 func (s genericSort) compare(a, b reflect.Value) (bool, error) {
+	if s.hasCompare {
+		return s.useCompare(a, b)
+	}
 	switch a.Type().Kind() {
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return a.Uint() < b.Uint(), nil
@@ -106,7 +151,7 @@ func (s genericSort) compare(a, b reflect.Value) (bool, error) {
 			bStr := b.Interface().(stringer).String()
 			return aStr < bStr, nil
 		}
-		err := fmt.Errorf("unknown field type '%s'", a.Type())
+		err := fmt.Errorf("unsupported field type '%s'. Add a Compare(%s) bool method", a.Type(), a.Type())
 		s.err.err = err
 		return false, err
 	}
@@ -147,8 +192,15 @@ func ref(val reflect.Value) *reflect.Value {
 // Pointers to structs and pointers to fields are dereferenced when appropriate.
 // Nil pointers are sorted last.
 //
-// Structsort has built in sorting for strings, ints floats and if the underlying
-// type supports it, by .String()
+// Structsort has built in sorting for strings, ints floats.
+// If the sort field has a method called `Compare`` and the method has a signature
+// that it takes it's own type, and returns a bool, then this method will be called
+// when doing comparisons.
+//
+// If the sort field does not have a built in type, but does have a `String()` method,
+// then it will be used in sorting
+//
+// NOTE: See examples, they demonstrate this quite well.
 func Sort(list interface{}, field string) error {
 	return sortInternal(list, field, "")
 }
