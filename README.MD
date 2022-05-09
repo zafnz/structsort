@@ -1,5 +1,8 @@
 # structsort #
-structsort is a Go library for sorting structs by field name in a slice (aka array). 
+[![GoDoc](https://godoc.org/github.com/zafnz/structsort?status.svg)](https://godoc.org/github.com/zafnz/structsort)
+
+structsort is a Go library for sorting structs by atribitrary field name in a slice. (eg you don't know what the
+field name could be before compile time!)
 
 It exists because I could not find code to do so, and when I tried to write it, it turned out to be 
 non-trivial. 
