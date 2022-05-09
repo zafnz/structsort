@@ -1,3 +1,13 @@
+// structsort sorts a supplied list of structs by an arbitrary supplied field. You do not need
+// to know the name of the field ahead of time, it's type, or even if it exists in the struct.
+//  list := []struct {val: int, str:string} {
+//    {2,"x"},
+//    {1,"y"},
+//  }
+// structsort.Sort(list, "var") // sorts by int
+// structsort.Sort(list, "str") // sorts by string
+//
+// It can sort by anything that is either a native type, or implements a String() function.
 package structsort
 
 import (
@@ -6,12 +16,12 @@ import (
 	"sort"
 )
 
-type Stringer interface {
+type stringer interface {
 	String() string
 }
 
 func sortInternal(list interface{}, field string, tagName string) error {
-	s := GenericSort{}
+	s := genericSort{}
 	s.slice = reflect.Indirect(reflect.ValueOf(list))
 	if s.slice.Kind() != reflect.Slice {
 		return fmt.Errorf("sort expects list parameter to be a slice")
@@ -21,7 +31,7 @@ func sortInternal(list interface{}, field string, tagName string) error {
 		// Easy, it's sorted.
 		return nil
 	}
-	s.err = new(ErrHolder)
+	s.err = new(errHolder)
 	s.rawType = s.slice.Index(0).Type()
 	s.fieldIdx = fieldIndex(ref(s.slice.Index(0)).Type(), tagName, field)
 	if s.fieldIdx == -1 {
@@ -32,22 +42,21 @@ func sortInternal(list interface{}, field string, tagName string) error {
 	return s.err.err
 }
 
-type ErrHolder struct {
+type errHolder struct {
 	err error
 }
 
-type GenericSort struct {
+type genericSort struct {
 	slice    reflect.Value
-	itemType reflect.Type
 	rawType  reflect.Type
 	fieldIdx int
-	err      *ErrHolder
+	err      *errHolder
 }
 
-func (s GenericSort) Len() int {
+func (s genericSort) Len() int {
 	return s.slice.Len()
 }
-func (s GenericSort) Swap(i, j int) {
+func (s genericSort) Swap(i, j int) {
 	a := s.slice.Index(i)
 	b := s.slice.Index(j)
 	tmp := reflect.New(s.rawType).Elem()
@@ -55,7 +64,7 @@ func (s GenericSort) Swap(i, j int) {
 	a.Set(b)
 	b.Set(tmp)
 }
-func (s GenericSort) Less(i, j int) bool {
+func (s genericSort) Less(i, j int) bool {
 	aStruct := ref(s.slice.Index(i))
 	bStruct := ref(s.slice.Index(j))
 	if aStruct == nil || bStruct == nil {
@@ -77,7 +86,7 @@ func (s GenericSort) Less(i, j int) bool {
 	return result
 }
 
-func (s GenericSort) compare(a, b reflect.Value) (bool, error) {
+func (s genericSort) compare(a, b reflect.Value) (bool, error) {
 	switch a.Type().Kind() {
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return a.Uint() < b.Uint(), nil
@@ -90,11 +99,11 @@ func (s GenericSort) compare(a, b reflect.Value) (bool, error) {
 	case reflect.Bool:
 		return !a.Bool(), nil
 	default:
-		stringerType := reflect.TypeOf((*Stringer)(nil)).Elem()
+		stringerType := reflect.TypeOf((*stringer)(nil)).Elem()
 
 		if a.Type().Implements(stringerType) {
-			aStr := a.Interface().(Stringer).String()
-			bStr := b.Interface().(Stringer).String()
+			aStr := a.Interface().(stringer).String()
+			bStr := b.Interface().(stringer).String()
 			return aStr < bStr, nil
 		}
 		err := fmt.Errorf("unknown field type '%s'", a.Type())
@@ -135,10 +144,11 @@ func ref(val reflect.Value) *reflect.Value {
 }
 
 // Sort sorts a slice of structs, by the named field.
-// If useJsonTags then look for json field names specified and if the field name is found there,
-// then it will sort with that field.
 // Pointers to structs and pointers to fields are dereferenced when appropriate.
 // Nil pointers are sorted last.
+//
+// Structsort has built in sorting for strings, ints floats and if the underlying
+// type supports it, by .String()
 func Sort(list interface{}, field string) error {
 	return sortInternal(list, field, "")
 }

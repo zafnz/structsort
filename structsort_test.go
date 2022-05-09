@@ -1,10 +1,14 @@
-package structsort
+package structsort_test
 
 import (
 	"fmt"
+	"log"
+	"math"
 	"sort"
 	"testing"
 	"time"
+
+	"github.com/zafnz/structsort"
 )
 
 type embeddedStruct struct {
@@ -49,7 +53,7 @@ func TestBasicSort(t *testing.T) {
 		list[i].String = sillyStrings[i]
 		list[i].Int = len(sillyStrings) - i
 	}
-	Sort(list, "String")
+	structsort.Sort(list, "String")
 	if originalLen != len(list) {
 		t.Fatalf("list has changed length, was %d now %d", originalLen, len(list))
 	}
@@ -60,7 +64,7 @@ func TestBasicSort(t *testing.T) {
 			break
 		}
 	}
-	Sort(list, "Int")
+	structsort.Sort(list, "Int")
 	for i := 0; i < len(sillyStrings); i++ {
 		if list[i].Int != i+1 {
 			t.Errorf("list did not sort by ints")
@@ -70,16 +74,16 @@ func TestBasicSort(t *testing.T) {
 }
 
 func TestEmptyLists(t *testing.T) {
-	err := Sort(make([]testStruct, 0), "StrPtr")
+	err := structsort.Sort(make([]testStruct, 0), "StrPtr")
 	if err != nil {
 		t.Errorf("Sort returned error when sorting empty list: %s", err.Error())
 	}
-	err = Sort(make([]testStruct, 1), "StrPtr")
+	err = structsort.Sort(make([]testStruct, 1), "StrPtr")
 	if err != nil {
 		t.Errorf("Sort returned error when sorting single item: %s", err.Error())
 	}
 
-	err = Sort(nil, "blah")
+	err = structsort.Sort(nil, "blah")
 	if err == nil {
 		t.Errorf("Sort did not report error when trying to sort nil")
 	}
@@ -91,7 +95,7 @@ func TestCaseSort(t *testing.T) {
 	for i := 0; i < len(sillyStrings); i++ {
 		list[i].String = sillyStrings[i]
 	}
-	Sort(list, "String")
+	structsort.Sort(list, "String")
 	sort.Strings(sillyStrings)
 	for i := 0; i < len(sillyStrings); i++ {
 		if list[i].String != sillyStrings[i] {
@@ -99,7 +103,6 @@ func TestCaseSort(t *testing.T) {
 			break
 		}
 	}
-	return
 }
 
 func TestJsonFields(t *testing.T) {
@@ -108,7 +111,7 @@ func TestJsonFields(t *testing.T) {
 	for i := 0; i < len(sillyStrings); i++ {
 		list[i].String = sillyStrings[i]
 	}
-	err := SortByTag(list, "json", "field_str")
+	err := structsort.SortByTag(list, "json", "field_str")
 	if err != nil {
 		t.Fatalf("got error: %s", err)
 	}
@@ -119,7 +122,6 @@ func TestJsonFields(t *testing.T) {
 			break
 		}
 	}
-	return
 }
 
 func TestTimeSort(t *testing.T) {
@@ -130,7 +132,7 @@ func TestTimeSort(t *testing.T) {
 	list[3].Time = time.Unix(1000, 0)
 	list[4].Time = time.Unix(2511, 1)
 
-	err := Sort(list, "Time")
+	err := structsort.Sort(list, "Time")
 	if err != nil {
 		t.Fatalf("got error: %s", err)
 	}
@@ -140,8 +142,6 @@ func TestTimeSort(t *testing.T) {
 		}
 		//fmt.Println("times: ", list[i].Time.String())
 	}
-
-	return
 }
 
 func TestValPtrs(t *testing.T) {
@@ -152,7 +152,7 @@ func TestValPtrs(t *testing.T) {
 		s := sillyStrings[i]
 		list[i].StrPtr = &s
 	}
-	err := Sort(list, "StrPtr")
+	err := structsort.Sort(list, "StrPtr")
 	if err != nil {
 		t.Fatalf("got error: %s", err)
 	}
@@ -175,7 +175,7 @@ func TestNilPtrSort(t *testing.T) {
 	}
 	list[2].StrPtr = nil
 
-	err := Sort(list, "StrPtr")
+	err := structsort.Sort(list, "StrPtr")
 	if err != nil {
 		t.Errorf("got error: %s", err)
 		return
@@ -183,7 +183,6 @@ func TestNilPtrSort(t *testing.T) {
 	if list[len(sillyStrings)-1].StrPtr != nil {
 		t.Errorf("Nil entry not sorted to end of list")
 	}
-	return
 }
 
 func TestStructPtrs(t *testing.T) {
@@ -194,7 +193,7 @@ func TestStructPtrs(t *testing.T) {
 		list[i] = new(testStruct)
 		list[i].String = sillyStrings[i]
 	}
-	err := Sort(list, "String")
+	err := structsort.Sort(list, "String")
 	if err != nil {
 		t.Fatalf("got error: %s", err)
 	}
@@ -205,11 +204,10 @@ func TestStructPtrs(t *testing.T) {
 			break
 		}
 	}
-	return
 }
 func TestInvalidField(t *testing.T) {
 	list := make([]testStruct, 5)
-	err := Sort(list, "NotValidField")
+	err := structsort.Sort(list, "NotValidField")
 	if err == nil {
 		t.Errorf("did not report errors when trying to sort by a type it can't handle")
 	}
@@ -221,12 +219,12 @@ func TestUnknownType(t *testing.T) {
 	for i := 0; i < len(sillyStrings); i++ {
 		list[i].Struct.val = sillyStrings[i]
 	}
-	err := Sort(list, "StrSlice")
+	err := structsort.Sort(list, "StrSlice")
 	if err == nil {
 		t.Errorf("did not report errors when trying to sort by a type it can't handle")
 	}
 
-	err = Sort(list, "Struct")
+	err = structsort.Sort(list, "Struct")
 	if err != nil {
 		t.Errorf("reported error sorting Struct that implements String(): %s", err.Error())
 	}
@@ -261,10 +259,32 @@ func TestUnknownType(t *testing.T) {
 */
 func TestAllTheTypes(t *testing.T) {
 	//TODO No idea how to do this without a lot of typing
-
+	list := []testStruct{
+		{Float64: 3.1, Uint16: 5},
+		{Float64: -0.9, Uint16: 2},
+		{Float64: math.Log(-1.0), Uint16: 200},
+	}
+	err := structsort.Sort(list, "Float64")
+	if err != nil {
+		t.Fatal(err)
+	}
+	log.Print(list)
+	if list[0].Float64 != -0.9 {
+		t.Error("Output in wrong order")
+	}
+	if !math.IsNaN(list[2].Float64) {
+		t.Error("NaN isn't last")
+	}
+	err = structsort.Sort(list, "Uint16")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if list[0].Uint16 != 2 || list[2].Uint16 != 200 {
+		t.Error("Uint16 sort order incorrect")
+	}
 }
 
-func TestExample(t *testing.T) {
+func Example() {
 	type Person struct {
 		Name string
 		Age  int
@@ -284,18 +304,25 @@ func TestExample(t *testing.T) {
 			Age:  44,
 		},
 	}
-	fmt.Printf("Sort by Name\n")
 
 	// Now for the magic
-	Sort(records, "Name")
+	fmt.Println("Sort by Name")
+	structsort.Sort(records, "Name")
 	for _, r := range records {
 		fmt.Printf("%s: %d\n", r.Name, r.Age)
 	}
-	// Output is Alice, Bob, and Charlie
-	fmt.Printf("Now sort by Age\n")
-	Sort(records, "Age")
+	fmt.Println("Now sort by Age")
+	structsort.Sort(records, "Age")
 	for _, r := range records {
 		fmt.Printf("%s: %d\n", r.Name, r.Age)
 	}
-	// Now output is Charlie, Bob, Alice
+	// Output:
+	// Sort by Name
+	// Alice: 44
+	// Bob: 33
+	// Charlie: 22
+	// Now sort by Age
+	// Charlie: 22
+	// Bob: 33
+	// Alice: 44
 }
